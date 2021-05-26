@@ -25,6 +25,10 @@ exports.run = async function(
     hmr,
     open,
     logLevel,
+    disablePrompts,
+    exitOnError,
+    disableBuildCache,
+    experimentalSkipRedundantServerReloads,
   } /*: any */
 ) {
   const logger = winston.createLogger({
@@ -36,12 +40,14 @@ exports.run = async function(
   logger.add(new winston.transports.Console({level: logLevel}));
 
   const compiler = new Compiler({
+    command: 'dev',
     env: 'development',
     dir,
     hmr,
     forceLegacyBuild,
     watch: true,
     logger,
+    disableBuildCache,
   });
 
   const devRuntime = new DevelopmentRuntime(
@@ -52,6 +58,8 @@ exports.run = async function(
         port,
         debug,
         noOpen: !open,
+        disablePrompts,
+        experimentalSkipRedundantServerReloads,
       },
       hmr ? {middleware: compiler.getMiddleware()} : {}
     )
@@ -62,7 +70,7 @@ exports.run = async function(
     : null;
 
   // $FlowFixMe
-  await Promise.all([devRuntime.start(), compiler.clean(dir)]);
+  const [actualPort] = await Promise.all([devRuntime.start(), compiler.clean(dir)]);
 
   const runAll = async () => {
     try {
@@ -72,15 +80,21 @@ exports.run = async function(
         testRuntime ? testRuntime.run() : Promise.resolve(),
       ]);
       if (!open) {
-        logger.info(`Application is running on http://localhost:${port}`);
+        logger.info(`Application is running on http://localhost:${actualPort}`);
       }
     } catch (e) {} // eslint-disable-line
   };
 
-  const watcher = await new Promise(resolve => {
+  const watcher = await new Promise((resolve, reject) => {
     const watcher = compiler.start((err, stats) => {
       if (err || stats.hasErrors()) {
-        return resolve(watcher);
+        if (exitOnError) {
+          return reject(
+            new Error('Compilation error exiting due to exitOnError parameter.')
+          );
+        } else {
+          return resolve(watcher);
+        }
       }
       return runAll().then(() => resolve(watcher));
     });
@@ -92,7 +106,7 @@ exports.run = async function(
       // make the default node debug port available for attaching by killing the
       // old attached process
       try {
-        exec('kill -9 $(lsof -n -t -i:9229)');
+        exec("kill -9 $(lsof -n -i:9229 | grep node | awk '{print $2}')");
       } catch (e) {} // eslint-disable-line
     }
     runAll();

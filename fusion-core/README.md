@@ -190,6 +190,16 @@ to a stable name for a given route. This is useful for situations where you need
 default, the route name is set to 'unknown_route' by fusion-core. If you are using `fusion-plugin-react-router` it will automatically
 set the route name to the matched react route.
 
+##### EnableMiddlewareTimingToken
+
+```js
+import App, {EnableMiddlewareTimingToken} from 'fusion-core';
+app.register(EnableMiddlewareTimingToken, true);
+```
+
+If `EnableMiddlewareTimingToken` is set to `true`, Fusion.js will emit middleware timing information that can be retrieved by inspecting
+the `ctx.timing.middleware` property from within middleware. See the RFC [here](https://github.com/uber/fusionjs/blob/master/public/rfcs/text/0000-middleware-timing.md).
+
 ---
 
 #### Plugin
@@ -373,7 +383,7 @@ In the server, `ctx` also exposes the same properties as a [Koa context](http://
 * `ctx: Object`
   * `req: http.IncomingMessage` - [Node's `request` object](https://nodejs.org/api/http.html#http_class_http_incomingmessage)
   * `res: Response` - [Node's `response` object](https://nodejs.org/api/http.html#http_class_http_serverresponse)
-  * `request: Request` - [Koa's `request` object](https://koajs.com/#request): <details><summary>View Koa request details</summary>
+  * `request: Request` - [Koa's `request` object](https://koajs.com/#request): View Koa request details
     * `header: Object` - alias of `request.headers`
     * `headers: Object` - map of parsed HTTP headers
     * `method: string` - HTTP method
@@ -401,9 +411,8 @@ In the server, `ctx` also exposes the same properties as a [Koa context](http://
     * `acceptsCharset: (...charsets: ...string) => boolean` - check if charsets are acceptable
     * `acceptsLanguages: (...languages: ...string) => boolean` - check if langs are acceptable
     * `get: (name: String) => string` - returns a header field
-  </details>
 
-  * `response: Response` - [Koa's `response` object](https://koajs.com/#response): <details><summary>View Koa response details</summary>
+  * `response: Response` - [Koa's `response` object](https://koajs.com/#response): View Koa response details
     * `header: Object` - alias of `request.headers`
     * `headers: Object` - map of parsed HTTP headers
     * `socket: Socket` - response socket
@@ -425,9 +434,8 @@ In the server, `ctx` also exposes the same properties as a [Koa context](http://
     * `etag: String` - set the ETag of a response including the wrapped `"`s.
     * `vary: (field: String) => String` - vary on `field`
     * `flushHeaders () => undefined` - flush any set headers, and begin the body
-    </details>
 
-  * `cookies: {get, set}` - cookies based on [Cookie Module](https://github.com/pillarjs/cookies): <details><summary>View Koa cookies details</summary>
+  * `cookies: {get, set}` - cookies based on [Cookie Module](https://github.com/pillarjs/cookies): View Koa cookies details
     * `get: (name: string, options: ?Object) => string` - get a cookie
       * `name: string`
       * `options: {signed: boolean}`
@@ -443,7 +451,6 @@ In the server, `ctx` also exposes the same properties as a [Koa context](http://
         * `secure: boolean` - secure cookie
         * `httpOnly: boolean` - server-accessible cookie, true by default
         * `overwrite: boolean` - a boolean indicating whether to overwrite previously set cookies of the same name (false by default). If this is true, all cookies set during the same request with the same name (regardless of path or domain) are filtered out of the Set-Cookie header when setting this cookie.
-  </details>
 
   * `state: Object` - recommended namespace for passing information through middleware and to your frontend views `ctx.state.user = await User.find(id)`
   * `throw: (status: ?number, message: ?string, properties: ?Object) => void` - throws an error
@@ -776,43 +783,14 @@ app.enhance(SSRDeciderToken, decide => ctx =>
 
 #### Troubleshooting
 
+Most common dependency-injection errors in Fusion.js will link to
+a troubleshooting document in this repo. If you encounter a registration error
+that does not provide a link, please create an issue
+[here](https://github.com/fusionjs/fusionjs/issues/new) containing minimal
+steps to reproduce.
+
 ##### Registered without depending
 
-```
-Error: Registered token without depending on it: "TOKEN_NAME"
-```
+Moved
+[here](https://github.com/fusionjs/fusionjs/tree/master/errors/registered-without-depending.md)
 
-This exception is thrown when a value is registered to a token which neither
-appears in a plugin's `deps` nor is enhanced with `app.enhance`. Note that the
-value we refer to here means any value that is not a plugin (created by calling
-`createPlugin`).
-
-Commonly this happens when you register a value like server-side config in both
-the browser and server environments, when really it should only be registered
-in the server because the only plugins that use it are server plugins. Wrap the
-`app.register` call in a code fence to fix the error.
-
-```js
-if (__NODE__) {
-  app.register(ConfigToken, mySecretConfig);
-}
-```
-
-You can see that this error prevents accidentally leaking configuration to the
-client.
-
-This error could also be thrown if no plugins in either environment depend on
-the token, but you need to use Fusion.js' DI system to store a value for use in
-your application. In most cases, you should not need to do this, however if you
-are sure you want to, you can get around this by wrapping the value in a plugin
-to prevent the exception from being thrown.
-
-```js
-app.register(ValueToken, createPlugin({
-  provides: () => myValue,
-}));
-```
-
-If you do not need to access the value by associating it with a token, there
-should be no reason to use the Fusion.js DI system for it. It is recommended to
-import and use the value directly in your application.

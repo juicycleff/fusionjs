@@ -16,7 +16,7 @@ test('`fusion build` app with split translations integration', async () => {
   var env = Object.create(process.env);
   env.NODE_ENV = 'production';
 
-  await cmd(`build --dir=${dir} --production --modernBuildOnly`, {env});
+  await cmd(`build --dir=${dir} --production`, {env});
 
   const {proc, port} = await start(`--dir=${dir}`, {env, cwd: dir});
   const browser = await puppeteer.launch({
@@ -24,7 +24,10 @@ test('`fusion build` app with split translations integration', async () => {
   });
   const page = await browser.newPage();
   await page.goto(`http://localhost:${port}/`, {waitUntil: 'load'});
+
+  await new Promise(res => setTimeout(res, 5000));
   const content = await page.content();
+
   t.ok(
     content.includes('__MAIN_TRANSLATED__'),
     'app content contains translated main chunk'

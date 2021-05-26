@@ -31,9 +31,14 @@ The CLI API can be most easily run through the Yarn or NPX CLI, e.g. `yarn fusio
 
   - `--production`: Build production assets
   - `--log-level`: Log level to output to console `[default: "info"]`
+  - `--skipSourceMaps`: Skip building source maps
   - `--maxWorkers`: Maximum number of workers create by webpack during build process
 
-- `fusion dev [dir] [--port] [--no-hmr] [--test] [--log-level] [--forceLegacyBuild]`
+  Builds where the ENABLE_REACT_PROFILER environment variable is set to `'true'` will enable the [Fusion React Profiler](https://reactjs.org/blog/2018/09/10/introducing-the-react-profiler.html) in apps deployed to production. (NOTE: using the react profiler will itself slightly degrade performance):
+
+  - `ENABLE_REACT_PROFILER=true fusion build`
+
+- `fusion dev [dir] [--port] [--no-hmr] [--test] [--log-level] [--forceLegacyBuild] [--disablePrompts]`
   Builds development assets and runs the application in development mode
 
   Note that this command only builds browser artifacts in memory, and it doesn't save them to the filesystem. This allows hot module reloading to occur faster since there's no performance cost due to I/O access.
@@ -43,7 +48,9 @@ The CLI API can be most easily run through the Yarn or NPX CLI, e.g. `yarn fusio
   - `--test`: Run tests as well as application
   - `--log-level`: Log level to output to console `[default: "info"]`
   - `--forceLegacyBuild`: Force enable legacy build. By default not compiled in dev.
-  - `--perserve-names`: Disable name mangling during script minification
+  - `--exitOnError`: Exit the process if a compiliation error occurs.
+  - `--preserveNames`: Disable name mangling during script minification
+  - `--disablePrompts`: Disable command-line prompts. Useful for CI environment
 
 <!--
 * `fusion profile [--environment] [--watch] [--file-count]`: Profile your application
@@ -62,14 +69,14 @@ The CLI API can be most easily run through the Yarn or NPX CLI, e.g. `yarn fusio
 
   Tests are run with Jest
 
-  - `--dir`: Root path for the application relative to CLI CWD.  (default .)
-  - `--debug`: Debug tests using --inspect-brk and --runInBand.  (default false)
+  - `--dir`: Root path for the application relative to CLI CWD. (default .)
+  - `--debug`: Debug tests using --inspect-brk and --runInBand. (default false)
   - `--match`: Runs test files that match a given string
-  - `--env`: Comma-separated list of environments to run tests in. Defaults to running both node and browser tests.  (default jsdom,node)
+  - `--env`: Comma-separated list of environments to run tests in. Defaults to running both node and browser tests. (default jsdom,node)
   - `--testFolder`: Which folder to look for tests in. Deprecated, use testMatch or testRegex instead.
   - `--testMatch`: Which folder to look for tests in. A comma-separated list of glob patterns.
   - `--testRegex`: Which folder to look for tests in. A comma-separated list of regexp strings.
-  - `--configPath`: Path to the jest configuration, used for testing.  (default [path-to-fusion-cli]/build/jest/jest-config.js)
+  - `--configPath`: Path to the jest configuration, used for testing. (default [path-to-fusion-cli]/build/jest/jest-config.js)
   - `--updateSnapshot`, `-u`: Updates snapshots
 
   Jest pass-through options
@@ -90,8 +97,10 @@ The CLI API can be most easily run through the Yarn or NPX CLI, e.g. `yarn fusio
   - `--listTests`: Jest CLI argument. See: https://jestjs.io/docs/en/cli.html#listtests
   - `--logHeapUsage`: Jest CLI argument. See: https://jestjs.io/docs/en/cli.html#logheapusage
   - `--noStackTrace`: Jest CLI argument. See: https://jestjs.io/docs/en/cli.html#nostacktrace
+  - `--noVerbose`: Jest CLI argument. See: https://jestjs.io/docs/en/cli.html#verbose
   - `--notify`: Jest CLI argument. See: https://jestjs.io/docs/en/cli.html#notify
   - `--onlyChanged`: Jest CLI argument. See: https://jestjs.io/docs/en/cli.html#onlychanged
+  - `--outputPath`: Jest CLI argument. See: https://jestjs.io/docs/en/cli.html#outputpath
   - `--passWithNoTests`: Jest CLI argument. See: https://jestjs.io/docs/en/cli.html#passwithnotests
   - `--reporters`: Jest CLI argument. See: https://jestjs.io/docs/en/cli.html#reporters
   - `--showConfig`: Jest CLI argument. See: https://jestjs.io/docs/en/cli.html#showconfig
@@ -110,4 +119,3 @@ The CLI API can be most easily run through the Yarn or NPX CLI, e.g. `yarn fusio
 ### Webpack stats.json file
 
 Building an app generates a `.fusion/stats.json` file, which can be used with [`webpack-bundle-analyzer`](https://www.npmjs.com/package/webpack-bundle-analyzer)
-

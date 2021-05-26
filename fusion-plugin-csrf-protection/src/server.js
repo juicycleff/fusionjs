@@ -15,19 +15,14 @@ type PluginDepsType = {
   ignored: typeof CsrfIgnoreRoutesToken.optional,
 };
 
-type ServiceType = () => Promise<void>;
-
-const enhancer = (
-  oldFetch: Fetch
-): FusionPlugin<PluginDepsType, ServiceType> => {
+const enhancer = (oldFetch: Fetch): FusionPlugin<PluginDepsType, Fetch> => {
   return createPlugin({
     deps: {
       ignored: CsrfIgnoreRoutesToken.optional,
     },
     provides: deps => {
-      return function serverFetch() {
-        return Promise.reject(new Error('Cannot use fetch on the server'));
-      };
+      // Pass through the old implementation
+      return oldFetch;
     },
     middleware: deps => {
       const {ignored = []} = deps;
@@ -45,7 +40,7 @@ const enhancer = (
             const message =
               `Missing csrf token on ${ctx.path}` +
               (__DEV__
-                ? ' Ensure you are using `fetch` from `fusion-plugin-csrf-protection-[react].'
+                ? ' Ensure you are using `fetch` enhanced by `fusion-plugin-csrf-protection`.'
                 : '');
             ctx.throw(403, message);
           }

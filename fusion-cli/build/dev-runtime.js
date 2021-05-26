@@ -16,9 +16,18 @@ const {spawn} = require('child_process');
 const {promisify} = require('util');
 const openUrl = require('react-dev-utils/openBrowser');
 const httpProxy = require('http-proxy');
+const net = require('net');
+const readline = require('readline');
+const chalk = require('chalk');
 
-const renderError = require('./server-error').renderError;
+const renderHtmlError = require('./server-error').renderHtmlError;
+const fs = require('fs');
 
+const stat = promisify(fs.stat);
+const exists = promisify(fs.exists);
+
+const entryFile = '.fusion/dist/development/server/server-main.js';
+let entryFileLastModifiedTime = Date.now();
 // mechanism to allow a running proxy server to wait for a child process server to start
 function Lifecycle() {
   const emitter = new EventEmitter();
@@ -77,6 +86,8 @@ module.exports.DevelopmentRuntime = function(
     noOpen,
     middleware = (req, res, next) => next(),
     debug = false,
+    disablePrompts = false,
+    experimentalSkipRedundantServerReloads,
   } /*: any */
 ) /*: DevRuntimeType */ {
   const lifecycle = new Lifecycle();
@@ -86,6 +97,9 @@ module.exports.DevelopmentRuntime = function(
     proxy: null,
   };
 
+  const resolvedChalkPath = require.resolve('chalk');
+  const resolvedServerErrorPath = require.resolve('./server-error');
+
   this.run = async function reloadProc() {
     const childPort = await getPort();
     const command = `
@@ -94,11 +108,14 @@ module.exports.DevelopmentRuntime = function(
 
       const fs = require('fs');
       const path = require('path');
-      const chalk = require('chalk');
+      const chalk = require(${JSON.stringify(resolvedChalkPath)});
+      const renderTerminalError = require(${JSON.stringify(
+        resolvedServerErrorPath
+      )}).renderTerminalError;
 
       const logErrors = e => {
         //eslint-disable-next-line no-console
-        console.error(chalk.red(e.stack))
+        console.error(renderTerminalError(e));
       }
 
       const logAndSend = e => {
@@ -107,13 +124,12 @@ module.exports.DevelopmentRuntime = function(
           message: e.message,
           name: e.name,
           stack: e.stack,
-          type: e.type
+          type: e.type,
+          link: e.link
         }});
       }
 
-      const entry = path.resolve(
-        '.fusion/dist/development/server/server-main.js'
-      );
+      const entry = path.resolve('${entryFile}');
 
       if (fs.existsSync(entry)) {
         try {
@@ -132,6 +148,21 @@ module.exports.DevelopmentRuntime = function(
         logAndSend(new Error(\`No entry found at \${entry}\`));
       }
     `;
+    if (experimentalSkipRedundantServerReloads && await exists(entryFile)) {
+      const entryFileStats = await stat(entryFile);
+      if (
+        entryFileStats.mtime.toString() ===
+          entryFileLastModifiedTime.toString() &&
+        state.proc &&
+        state.proxy
+      ) {
+        console.log('Server bundle not changed, skipping server restart.');
+        lifecycle.start();
+        return;
+      } else {
+        entryFileLastModifiedTime = entryFileStats.mtime;
+      }
+    }
 
     killProc();
 
@@ -191,6 +222,22 @@ module.exports.DevelopmentRuntime = function(
   }
 
   this.start = async function start() {
+    const portAvailable = await isPortAvailable(port);
+    if (!portAvailable) {
+      if (disablePrompts) {
+        // Fast fail, don't prompt
+        throw new Error(`Port ${port} taken by another process`);
+      }
+      const useRandomPort = await prompt(`Port ${port} taken! Continue with a different port?`);
+      if (useRandomPort) {
+        let ports = [];
+        for (let i = 1; i <= 10; i++) {
+          ports.push(port + i);
+        }
+        port = await getPort({port: ports});
+      }
+    }
+
     // $FlowFixMe
     state.server = http.createServer((req, res) => {
       middleware(req, res, async () => {
@@ -200,14 +247,14 @@ module.exports.DevelopmentRuntime = function(
             state.proxy.web(req, res, e => {
               if (res.finished) return;
 
-              res.write(renderError(e));
+              res.write(renderHtmlError(e));
               res.end();
             });
           },
           error => {
             if (res.finished) return;
 
-            res.write(renderError(error));
+            res.write(renderHtmlError(error));
             res.end();
           }
         );
@@ -237,6 +284,9 @@ module.exports.DevelopmentRuntime = function(
     return listen(port).then(() => {
       const url = `http://localhost:${port}`;
       if (!noOpen) openUrl(url);
+
+      // Return port in case it had to be changed
+      return port;
     });
   };
 
@@ -250,3 +300,34 @@ module.exports.DevelopmentRuntime = function(
 
   return this;
 };
+
+async function prompt(question) {
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout
+  });
+  return new Promise(resolve => {
+    rl.question(`\n${chalk.bold(question)} [Y/n]`, answer => {
+      const response = answer === '' || answer.toLowerCase() === 'y';
+      rl.close();
+      resolve(response);
+    });
+  });
+}
+
+async function isPortAvailable(port) {
+  return new Promise((resolve, reject) => {
+    const server = net.createServer();
+    server.once('error', err => {
+      if (err.code === 'EADDRINUSE') {
+        resolve(false);
+      }
+      reject(err);
+    });
+    server.once('listening',() =>  {
+      server.once('close', () => resolve(true));
+      server.close();
+    });
+    server.listen(port);
+  });
+}

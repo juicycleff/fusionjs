@@ -13,6 +13,14 @@ allowedJestOptions.forEach(arg => {
   };
 });
 
+const disableBuildCacheOption = {
+  disableBuildCache: {
+    type: 'boolean',
+    default: undefined,
+    describe: 'Disable persistent build cache.'
+  }
+};
+
 module.exports = {
   build: {
     descr: 'Build your app',
@@ -48,6 +56,12 @@ module.exports = {
         describe:
           'Build the application only for modern browsers. Will serve the modern bundles on legacy browsers.',
       },
+      skipSourceMaps: {
+        type: 'boolean',
+        default: false,
+        describe: 'Build without source maps.',
+      },
+      ...disableBuildCacheOption,
     },
   },
   dev: {
@@ -62,6 +76,11 @@ module.exports = {
         type: 'boolean',
         default: false,
         describe: 'Debug application',
+      },
+      exitOnError: {
+        type: 'boolean',
+        default: false,
+        describe: 'Exits the development server if an error occurs.',
       },
       port: {
         type: 'number',
@@ -88,6 +107,17 @@ module.exports = {
         default: 'info',
         describe: 'Log level to show',
       },
+      disablePrompts: {
+        type: 'boolean',
+        default: false,
+        describe: 'Disable command-line prompts',
+      },
+      experimentalSkipRedundantServerReloads: {
+        type: 'boolean',
+        default: false,
+        describe: 'Skip server respawn when server bundle does not change',
+      },
+      ...disableBuildCacheOption,
     },
   },
   profile: {
@@ -108,6 +138,7 @@ module.exports = {
         default: '4000',
         describe: 'Port for the bundle analyzer server',
       },
+      ...disableBuildCacheOption,
     },
   },
   start: {
